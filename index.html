@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CERBER PRO</title>
+
+<link rel="icon" href="https://cdn-icons-png.flaticon.com/512/616/616408.png">
+
+<style>
+body {margin:0;font-family:Arial;background:#0b0b0b;color:white;}
+header {
+display:flex;justify-content:space-between;align-items:center;
+padding:15px;background:black;border-bottom:2px solid red;
+position:sticky;top:0;
+}
+.logo {color:red;font-size:22px;font-weight:bold;}
+
+.btn {
+background:red;border:none;color:white;
+padding:8px 12px;border-radius:6px;cursor:pointer;margin:3px;
+transition:0.2s;
+}
+.btn:hover {transform:scale(1.05);background:#ff1a1a;}
+
+.search {padding:6px;border-radius:5px;border:none;}
+
+.categories {display:flex;overflow:auto;padding:10px;}
+.cat {background:#111;padding:8px 12px;border-radius:20px;margin-right:8px;cursor:pointer;}
+.cat.active {background:red;}
+
+.grid {
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:15px;padding:15px;
+}
+
+.card {
+background:#111;border-radius:10px;overflow:hidden;
+transition:0.3s;position:relative;
+}
+.card:hover {transform:scale(1.05);}
+
+.card img {width:100%;height:160px;object-fit:cover;}
+.card h3 {padding:10px;}
+
+.like {
+position:absolute;top:10px;right:10px;
+cursor:pointer;font-size:18px;
+}
+
+.modal {
+display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+background:#000000cc;justify-content:center;align-items:center;
+}
+
+.box {
+background:#111;padding:20px;border-radius:10px;
+width:90%;max-width:350px;
+}
+
+input,select {
+width:100%;margin:5px 0;padding:6px;
+background:#222;border:none;color:white;
+}
+
+.toast {
+position:fixed;bottom:20px;right:20px;
+background:red;padding:10px;border-radius:5px;
+display:none;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="logo">CERBER</div>
+
+<div>
+<input class="search" placeholder="Пошук..." oninput="search(this.value)">
+<button class="btn" onclick="window.open('https://www.instagram.com/cerber_ukraine')">IG</button>
+<button class="btn" onclick="openCart()">🛒</button>
+<button class="btn" onclick="login()">⚙️</button>
+</div>
+</header>
+
+<div class="categories" id="cats"></div>
+<div class="grid" id="products"></div>
+
+<!-- PRODUCT -->
+<div class="modal" id="productModal">
+<div class="box">
+<h2 id="pTitle"></h2>
+<img id="pImg" style="width:100%">
+<p id="pDesc"></p>
+<p id="pPrice"></p>
+<button class="btn" onclick="addToCart()">Купити</button>
+<button class="btn" onclick="closeModal()">Закрити</button>
+</div>
+</div>
+
+<!-- CART -->
+<div class="modal" id="cartModal">
+<div class="box">
+<h2>Корзина</h2>
+<div id="cartItems"></div>
+<p id="total"></p>
+<button class="btn" onclick="checkout()">Оформити</button>
+</div>
+</div>
+
+<!-- CHECKOUT -->
+<div class="modal" id="checkoutModal">
+<div class="box">
+<h2>Оформлення</h2>
+<input placeholder="Ім'я">
+<input placeholder="Телефон">
+<input placeholder="Місто">
+<button class="btn" onclick="finish()">Підтвердити</button>
+</div>
+</div>
+
+<!-- ADMIN -->
+<div class="modal" id="adminModal">
+<div class="box">
+<h2>Адмінка</h2>
+<input id="name" placeholder="Назва">
+<input id="desc" placeholder="Опис">
+<input id="price" placeholder="Ціна">
+<input id="img" placeholder="URL картинки">
+
+<select id="category">
+<option>ПК</option>
+<option>Ноутбуки</option>
+<option>Комплектуючі</option>
+<option>Периферія</option>
+</select>
+
+<button class="btn" onclick="addProduct()">Додати</button>
+
+<div id="adminList"></div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let categories=["Всі","ПК","Ноутбуки","Комплектуючі","Периферія"];
+let active="Всі";
+
+let products=JSON.parse(localStorage.getItem("products"))||[
+{name:"Gaming PC",desc:"RTX ПК",price:25000,img:"https://images.unsplash.com/photo-1593640408182",cat:"ПК"},
+{name:"Laptop",desc:"Ноутбук",price:20000,img:"https://images.unsplash.com/photo-1517336714731",cat:"Ноутбуки"}
+];
+
+let cart=[];
+let current=null;
+let fav=[];
+
+function toast(t){
+let el=document.getElementById("toast");
+el.innerText=t;
+el.style.display="block";
+setTimeout(()=>el.style.display="none",2000);
+}
+
+function renderCats(){
+cats.innerHTML=categories.map(c=>
+`<div class="cat ${c==active?'active':''}" onclick="setCat('${c}')">${c}</div>`
+).join("");
+}
+
+function setCat(c){active=c;render();renderCats();}
+
+function render(list=products){
+productsDiv.innerHTML=list
+.filter(p=>active=="Всі"||p.cat==active)
+.map((p,i)=>`
+<div class="card">
+<div class="like" onclick="like(${i})">❤️</div>
+<div onclick="openProduct(${i})">
+<img src="${p.img}">
+<h3>${p.name}</h3>
+</div>
+</div>
+`).join("");
+}
+
+function search(q){
+render(products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())));
+}
+
+function openProduct(i){
+current=products[i];
+pTitle.innerText=current.name;
+pDesc.innerText=current.desc;
+pPrice.innerText=current.price+" грн";
+pImg.src=current.img;
+productModal.style.display="flex";
+}
+
+function closeModal(){productModal.style.display="none";}
+
+function addToCart(){
+cart.push(current);
+toast("Додано в корзину");
+}
+
+function openCart(){
+let sum=0;
+cartItems.innerHTML=cart.map(p=>{
+sum+=p.price;
+return `<p>${p.name} - ${p.price}</p>`;
+}).join("");
+total.innerText="Разом: "+sum+" грн";
+cartModal.style.display="flex";
+}
+
+function checkout(){
+cartModal.style.display="none";
+checkoutModal.style.display="flex";
+}
+
+function finish(){
+toast("Замовлення прийнято 🔥");
+cart=[];
+checkoutModal.style.display="none";
+}
+
+function login(){
+let p=prompt("Пароль");
+if(p==="1234") adminModal.style.display="flex";
+}
+
+function addProduct(){
+products.push({
+name:name.value,
+desc:desc.value,
+price:Number(price.value),
+img:img.value,
+cat:category.value
+});
+save();
+}
+
+function like(i){
+toast("Додано в обране ❤️");
+}
+
+function save(){
+localStorage.setItem("products",JSON.stringify(products));
+render();
+}
+
+renderCats();
+render();
+</script>
+
+</body>
+</html>
